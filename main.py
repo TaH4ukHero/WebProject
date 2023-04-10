@@ -17,15 +17,47 @@ LAUNCH_DIALOG, START_GAME = range(2)
 towns = [i.strip("\n").replace("ё", "е").lower() for i in open('cities.txt', encoding='utf8')]
 
 
+def standart(toponym):
+    return toponym.replace('ё', 'е').lower()
+
+
+def fix_results(update: Update, context, result):
+    sess = create_session()
+    user = sess.query(User).filter(User.user_id == update.effective_user.id).first()
+    if user is None:
+        user = User()
+        user.user_id = update.effective_user.id
+        sess.add(user)
+        sess.commit()
+        user = sess.query(User).filter(User.user_id == update.effective_user.id).first()
+    if result == 'WIN':
+        user.wins = user.wins + 1
+    elif result == 'LOSE':
+        user.loses += 1
+    if context.user_data.get('attempts', 0) != 0:
+        user.last_attempts = context.user_data['attempts']
+        user.min_attempts = min(user.min_attempts, context.user_data['attempts'])
+        user.most_attempts = max(user.most_attempts, context.user_data['attempts'])
+        user.attempts += context.user_data['attempts']
+    sess.commit()
+    context.user_data.clear()
+
+
 async def start(update, context):
     user = update.effective_user
-    keyboard = [['ДА', 'Нет']]
+    keyboard = [['ДА', 'НЕТ']]
     markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_html(
-        rf"Привет {user.mention_html()}! Я игровой тг бот. Не хочешь сыграть в <b>Угадай город?</b>",
+        f"Привет {user.mention_html()}! Я игровой тг бот. Не хочешь сыграть в <b>"
+        f"Угадай город/страну?</b>",
         reply_markup=markup
     )
     return LAUNCH_DIALOG
+
+
+async def help_(update: Update, context):
+    await update.message.reply_html('<b>/start - Начало игры</b>\n'
+                                    '<b>/stats - Статистика игрока</b>\n')
 
 
 async def launch(update: Update, context):
@@ -44,22 +76,50 @@ async def launch(update: Update, context):
 
 
 async def check_town(update: Update, context):
-    context.user_data["attemps"] = context.user_data.get("attemps", 0) + 1
-    if update.message.text == context.user_data["guessed_town"]:
-        await update.message.reply_text(f'Молодец! Ты угадал! Загаданный город - '
-                                        f'{context.user_data["guessed_town"]}Спасибо за игру! Жду снова!')
-        return ConversationHandler.END
+    context.user_data["attempts"] = context.user_data.get("attempts", 0) + 1
+
+    if standart(update.message.text) == context.user_data["guessed_town"]:
+        await update.message.reply_html(f'Молодец! Ты угадал! Загаданный город - '
+                                        f'<b> {context.user_data["guessed_town"]}'
+                                        f'Хотите сыграть еще раз?</b>',
+                                        reply_markup=ReplyKeyboardMarkup([['ДА', 'НЕТ']],
+                                                                         resize_keyboard=True,
+                                                                         one_time_keyboard=True))
+        fix_results(update, context, 'WIN')
+        return LAUNCH_DIALOG
     else:
-        await update.message.reply_text('К сожалению, это неправильный ответ. Попробуй еще раз!')
+        await update.message.reply_text('К сожалению, это неправильный ответ. Попробуй еще раз!',
+                                        reply_markup=ReplyKeyboardMarkup([['/help', '/stop']]))
+
+
+async def dev(update: Update, context):
+    await update.message.reply_text(context.user_data['guessed_town'])
 
 
 async def bye(update: Update, context):
-    await update.message.reply_text('Спасибо за игру! Жду снова!')
-    sess = create_session()
-    user = sess.query(User).filter(User.user_id == update.effective_user.id)
-    user.loses += 1
-    sess.commit()
+    await update.message.reply_text('Жаль, что не смог победить! Спасибо за игру! Жду снова!',
+                                    reply_markup=ReplyKeyboardMarkup([['/start', '/help']],
+                                                                     resize_keyboard=True))
+    fix_results(update, context, "LOSE")
     return ConversationHandler.END
+
+
+async def statistics(update: Update, context):
+    sess = create_session()
+    user = sess.query(User).filter(User.user_id == update.effective_user.id).first()
+    if user is None:
+        user = User()
+        user.user_id = update.effective_user.id
+        sess.add(user)
+        sess.commit()
+        user = sess.query(User).filter(User.user_id == update.effective_user.id).first()
+    await update.message.reply_html(
+        f"<b>Статистика игрока  {update.effective_user.mention_html()}</b>\n"
+        f"<b>Победы - {user.wins}</b>\n<b>Поражения - {user.loses}</b>\n"
+        f"<b>Наибольшее кол-во попыток для угадывания - {user.most_attempts}</b>\n"
+        f"<b>Наименьшее кол-во попыток для угадывания - {user.min_attempts}</b>\n"
+        f"<b>Последнее кол-во попыток для угадывания - {user.wins}</b>\n"
+        f"<b>Всего попыток - {user.attempts}</b>")
 
 
 if __name__ == '__main__':
@@ -78,5 +138,8 @@ if __name__ == '__main__':
     )
 
     app.add_handler(conv_handler)
+    app.add_handler(CommandHandler('dev', dev))
+    app.add_handler(CommandHandler('stats', statistics))
+    app.add_handler(CommandHandler('help', help_))
 
     app.run_polling()
