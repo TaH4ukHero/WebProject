@@ -12,7 +12,7 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-LAUNCH_DIALOG, START_GAME = range(2)
+LAUNCH_DIALOG, LETTER_OR_TOWN, LETTER, TOWN = range(5)
 
 towns = [i.strip("\n").replace("ё", "е").lower() for i in open('cities.txt', encoding='utf8')]
 
@@ -49,7 +49,7 @@ async def start(update, context):
     markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_html(
         f"Привет {user.mention_html()}! Я игровой тг бот. Не хочешь сыграть в <b>"
-        f"Угадай город/страну?</b>",
+        f"Угадай город?</b>",
         reply_markup=markup
     )
     return LAUNCH_DIALOG
@@ -62,11 +62,14 @@ async def help_(update: Update, context):
 
 async def launch(update: Update, context):
     if update.message.text == 'ДА':
-        context.user_data['guessed_town'] = random.choice(towns)
-        await update.message.reply_text('Хорошо, сыграем! Я загадал попробуй угадать! Напиши '
-                                        'название города',
-                                        reply_markup=ReplyKeyboardRemove())
-        return START_GAME
+        keyboard = ReplyKeyboardMarkup([['Назову букву', 'Назову город целиком']],
+                                       one_time_keyboard=True, resize_keyboard=True)
+        context.user_data['guessed_town'] = list(random.choice(towns))
+        context.user_data["guessed_letters"] = list()
+        await update.message.reply_text('Хорошо, сыграем! Я загадал попробуй угадать! Выбери один '
+                                        'из вариантов.',
+                                        reply_markup=keyboard)
+        return LETTER_OR_TOWN
     elif update.message.text == 'НЕТ':
         await update.message.reply_text('Жаль. До скорой встречи!',
                                         reply_markup=ReplyKeyboardRemove())
@@ -75,12 +78,56 @@ async def launch(update: Update, context):
     return LAUNCH_DIALOG
 
 
+async def intermediate_stage():
+    pass
+
+
+def print_guessed_letters(context):
+    letters = context.user_data["guessed_letters"]
+    guessed_town = context.user_data["guessed_town"]
+    out = []
+    for i, val in guessed_town:
+        if val in letters:
+            out += guessed_town[guessed_town.index(val)]
+            guessed_town = list(''.join(guessed_town).replace(val, '*', 1))
+        else:
+            out += '_'
+    return out
+
+
+async def letter_of_town(update: Update, context):
+    msg = update.message.text
+    if msg == 'Назову букву':
+        await update.message.reply_text('Хорошо! Называй букву из назвния города.\n'
+                                        'Угаданные буквы')
+        return LETTER
+    elif msg == 'Назову город целиком':
+        await update.message.reply_text('Хорошо! Называй название города целиком.')
+        return TOWN
+
+
+async def check_letter(update: Update, context):
+    msg = update.message.text
+    context.user_data["attempts"] = context.user_data.get("attempts", 0) + 1
+    if msg == 'Назову город целиком':
+        return TOWN
+    if len(msg) == 1 and msg.isalpha() and msg not in context.user_data["guessed_letters"]:
+        context.user_data["guessed_letters"].append(msg)
+        if msg in context.user_data["guessed_town"]:
+            await update.message.reply_text('Отлично! Эта буква есть в названии.')
+    else:
+        await update.message.reply_text('Эта буква уже использовалась! Попробуй другую')
+    await update.message.reply_html(f'Угаданные буквы\n'
+                                    f'<b>{" ".join(print_guessed_letters(context))}</b>')
+
+
 async def check_town(update: Update, context):
     context.user_data["attempts"] = context.user_data.get("attempts", 0) + 1
-
-    if standart(update.message.text) == context.user_data["guessed_town"]:
+    if update.message.text == 'Назову букву':
+        return LETTER
+    if standart(update.message.text) == ''.join(context.user_data["guessed_town"]):
         await update.message.reply_html(f'Молодец! Ты угадал! Загаданный город - '
-                                        f'<b> {context.user_data["guessed_town"]}'
+                                        f'<b> {"".join(context.user_data["guessed_town"]).capitalize()}'
                                         f'Хотите сыграть еще раз?</b>',
                                         reply_markup=ReplyKeyboardMarkup([['ДА', 'НЕТ']],
                                                                          resize_keyboard=True,
@@ -93,7 +140,7 @@ async def check_town(update: Update, context):
 
 
 async def dev(update: Update, context):
-    await update.message.reply_text(context.user_data['guessed_town'])
+    await update.message.reply_text(''.join(context.user_data['guessed_town']).capitalize())
 
 
 async def bye(update: Update, context):
@@ -131,8 +178,12 @@ if __name__ == '__main__':
         entry_points=[CommandHandler('start', start)],
         states={
             LAUNCH_DIALOG: [MessageHandler(filters.TEXT & ~filters.COMMAND, launch)],
-            START_GAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, check_town),
-                         CommandHandler('stop', bye)]
+            LETTER_OR_TOWN: [MessageHandler(filters.TEXT & ~filters.COMMAND, letter_of_town),
+                             CommandHandler('stop', bye)],
+            LETTER: [MessageHandler(filters.TEXT & ~filters.COMMAND, check_letter),
+                     CommandHandler('stop', bye)],
+            TOWN: [MessageHandler(filters.TEXT & ~filters.COMMAND, check_town),
+                   CommandHandler('stop', bye)]
         },
         fallbacks=[CommandHandler('stop', bye)]
     )
