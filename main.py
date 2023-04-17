@@ -4,9 +4,10 @@ import random
 import requests
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove, Bot
 from telegram.ext import Application, CommandHandler, ConversationHandler, MessageHandler, filters
-from config import BOT_TOKEN, APIKEY_GEO, URL_GEO
+from config import BOT_TOKEN
 from data.db_session import global_init, create_session
 from data.users import User
+from useful_func import *
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG
@@ -22,8 +23,8 @@ towns = [i.strip("\n").replace("ё", "е").lower() for i in open('cities.txt', e
 # towns = ['Ханты Мансийск']
 
 
-def standart(toponym):
-    return list(''.join(toponym).replace('ё', 'е').lower())
+# def standart(toponym):
+#     return list(''.join(toponym).replace('ё', 'е').lower())
 
 
 def fix_results(update: Update, context, result):
@@ -86,39 +87,39 @@ async def launch(update: Update, context):
     return LAUNCH_DIALOG
 
 
-def print_guessed_letters(context):
-    letters = context.user_data["guessed_letters"]
-    guessed_town = standart(context.user_data["guessed_town"])
-    out = []
-    for val in guessed_town:
-        if val in letters:
-            out += guessed_town[guessed_town.index(val)]
-            guessed_town = list(''.join(guessed_town).replace(val, '*', 1))
-        elif val == ' ':
-            out += ' '
-        else:
-            out += '_'
-    return out
+# def print_guessed_letters(context):
+#     letters = context.user_data["guessed_letters"]
+#     guessed_town = standart(context.user_data["guessed_town"])
+#     out = []
+#     for val in guessed_town:
+#         if val in letters:
+#             out += guessed_town[guessed_town.index(val)]
+#             guessed_town = list(''.join(guessed_town).replace(val, '*', 1))
+#         elif val == ' ':
+#             out += ' '
+#         else:
+#             out += '_'
+#     return out
 
 
-def few_facts_abt_town(town):
-    out = ''
-    params = {
-        "geocode": town,
-        "apikey": APIKEY_GEO,
-        "format": "json",
-        "lang": "ru_RU"
-    }
-    r = requests.get(url=URL_GEO, params=params).json()
-    out += f'Название - <b>{town.capitalize()}</b>\n'
-    with open('town2population.json', encoding='utf8') as file:
-        population = json.load(file).get(town.capitalize())
-        out += f"Население - <b>{population}</b>\n"
-    adm_area_name = r["response"]["GeoObjectCollection"]["featureMember"][0]["GeoObject"]
-    adm_area_name = adm_area_name["metaDataProperty"]["GeocoderMetaData"]["AddressDetails"]
-    adm_area_name = adm_area_name["Country"]["AdministrativeArea"]["AdministrativeAreaName"]
-    out += f'Административный округ - <b>{adm_area_name}</b>'
-    return out
+# def few_facts_abt_town(town):
+#     out = ''
+#     params = {
+#         "geocode": town,
+#         "apikey": APIKEY_GEO,
+#         "format": "json",
+#         "lang": "ru_RU"
+#     }
+#     r = requests.get(url=URL_GEO, params=params).json()
+#     out += f'Название - <b>{town.capitalize()}</b>\n'
+#     with open('town2population.json', encoding='utf8') as file:
+#         population = json.load(file).get(town.capitalize())
+#         out += f"Население - <b>{population}</b>\n"
+#     adm_area_name = r["response"]["GeoObjectCollection"]["featureMember"][0]["GeoObject"]
+#     adm_area_name = adm_area_name["metaDataProperty"]["GeocoderMetaData"]["AddressDetails"]
+#     adm_area_name = adm_area_name["Country"]["AdministrativeArea"]["AdministrativeAreaName"]
+#     out += f'Административный округ - <b>{adm_area_name}</b>'
+#     return out
 
 
 async def letter_or_town(update: Update, context):
@@ -216,7 +217,7 @@ async def statistics(update: Update, context):
         sess.commit()
         user = sess.query(User).filter(User.user_id == update.effective_user.id).first()
     await get_photo(update)
-    await update.message.reply_photo(f'data/photos/{update.effective_user.id}')
+    await update.message.reply_photo(f'data/photos/{update.effective_user.id}.jpeg')
     await update.message.reply_html(
         f"<b>Статистика игрока  {update.effective_user.mention_html()}</b>\n"
         f"<b>Победы - {user.wins}</b>\n<b>Поражения - {user.loses}</b>\n"
