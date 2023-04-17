@@ -19,6 +19,7 @@ LAUNCH_DIALOG, LETTER_OR_TOWN, LETTER, TOWN = range(4)
 
 towns = [i.strip("\n").replace("ё", "е").lower() for i in open('cities.txt', encoding='utf8')]
 
+
 def fix_results(update: Update, context, result):
     sess = create_session()
     user = sess.query(User).filter(User.user_id == update.effective_user.id).first()
@@ -77,6 +78,7 @@ async def launch(update: Update, context):
         return ConversationHandler.END
     await update.message.reply_text('Я тебя не понял. Повтори пожалуйста')
     return LAUNCH_DIALOG
+
 
 async def letter_or_town(update: Update, context):
     msg = update.message.text
