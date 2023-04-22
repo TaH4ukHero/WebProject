@@ -81,7 +81,7 @@ def few_facts_abt_town(town, mode=False):
 
 def win(context):
     keyboard = ReplyKeyboardMarkup([['ДА', 'НЕТ']], resize_keyboard=True, one_time_keyboard=True)
-    msg1 = f'<b>Молодец! Ты угадал!\nХотите сыграть еще раз?</b>'
+    msg1 = f'<b>Молодец! Ты угадал!\nХочешь сыграть еще раз?</b>'
     msg2 = few_facts_abt_town(''.join(context.user_data["guessed_town"]))
     return [keyboard, msg1, msg2]
 
