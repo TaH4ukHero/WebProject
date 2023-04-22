@@ -88,9 +88,12 @@ async def hint(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user_data["hints"] -= 1
     if user_data["hints"] < 0:
         await update.message.reply_text('Подсказок больше нет')
-    if msg == 'Административный округ':
-        text, user_data = few_facts_abt_town(user_data["guessed_town"], mode=True)
-        await update.message.reply_text(f"{text}\nОсталось подсказок {user_data['hints']}/3")
+    if msg == 'Назвать административный округ':
+        keyboard = ReplyKeyboardMarkup([['Назову букву', 'Назову город целиком']],
+                                       one_time_keyboard=True, resize_keyboard=True)
+        text = few_facts_abt_town(''.join(user_data["guessed_town"]), mode=True)
+        await update.message.reply_text(f"{text}\nОсталось подсказок {user_data['hints']}/3",
+                                        reply_markup=keyboard)
     else:
         keyboard = ReplyKeyboardMarkup([['Назову букву', 'Назову город целиком']],
                                        one_time_keyboard=True, resize_keyboard=True)
