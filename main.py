@@ -17,6 +17,12 @@ logger = logging.getLogger(__name__)
 # Словесное представление states для # conv_handler
 
 LAUNCH_DIALOG, LETTER_OR_TOWN, LETTER, TOWN = range(4)
+"""
+   LAUNCH_DIALOG - Начать игру или нет
+   LETTER_OR_TOWN - Выбор способа угадывания (по одной букве или целым словом)
+   LETTER - При выборе угадывания по одной букве
+   TOWN - При выборе угадывания целым словом
+"""
 
 # Список городов для загадывания
 
