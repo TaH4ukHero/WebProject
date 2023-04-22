@@ -1,8 +1,6 @@
-import json
 import logging
 import random
-import requests
-from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove, Bot
+from telegram import Update, ReplyKeyboardRemove, Bot
 from telegram.ext import Application, CommandHandler, ConversationHandler, MessageHandler, filters
 from config import BOT_TOKEN
 from data.db_session import global_init, create_session
@@ -17,16 +15,16 @@ logger = logging.getLogger(__name__)
 
 LAUNCH_DIALOG, LETTER_OR_TOWN, LETTER, TOWN = range(4)
 
-# towns = [i.strip("\n") for i in open('cities.txt', encoding='utf8')]
+towns = [i.strip("\n") for i in open('cities.txt', encoding='utf8')]
 towns_exceptions = ["Йошкар-Ола", 'Каменск-Уральский', 'Комсомольск-на-Амуре', 'Орехово-Зуево',
                     'Петропавловск-Камчатский', 'Ростов-на-Дону', 'Санкт-Петербург', 'Улан-Удэ',
                     'Ханты-Мансийск', 'Южно-Сахалинск']
-towns = ["Артём"]
+
 
 def fix_results(update: Update, context, result):
-    sess = create_session()
-    user = sess.query(User).filter(User.user_id == update.effective_user.id).first()
-    if user is None:
+    sess = create_session()  # Создание сессии с ДБ
+    user = sess.query(User).filter(User.user_id == update.effective_user.id).first()  # Поиск Юзера
+    if user is None:  # Если юзера не существует
         user = User()
         user.user_id = update.effective_user.id
         sess.add(user)
@@ -45,10 +43,10 @@ def fix_results(update: Update, context, result):
         user.most_attempts = max(user.most_attempts, context.user_data['attempts'])
         user.attempts += context.user_data['attempts']
     sess.commit()
-    context.user_data.clear()
+    context.user_data.clear()  # Удаление информации об игре с пользователем
 
 
-async def start(update, context):
+async def start(update, context) -> LAUNCH_DIALOG:
     user = update.effective_user
     keyboard = [['ДА', 'НЕТ']]
     markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
@@ -58,11 +56,6 @@ async def start(update, context):
         reply_markup=markup
     )
     return LAUNCH_DIALOG
-
-
-async def help_(update: Update, context):
-    await update.message.reply_html('<b>/start - Начало игры</b>\n'
-                                    '<b>/stats - Статистика игрока</b>\n')
 
 
 async def launch(update: Update, context):
@@ -95,36 +88,22 @@ async def letter_or_town(update: Update, context):
         return TOWN
 
 
-def win(context):
-    keyboard = ReplyKeyboardMarkup([['ДА', 'НЕТ']], resize_keyboard=True, one_time_keyboard=True)
-    msg1 = f'Молодец! Ты угадал! Загаданный город - <b> {"".join(context.user_data["guessed_town"])}\nХотите сыграть еще раз?</b>'
-    msg2 = few_facts_abt_town(''.join(context.user_data["guessed_town"]))
-    return [keyboard, msg1, msg2]
-
-
 async def check_letter(update: Update, context):
     msg = update.message.text
-    context.user_data["attempts"] = context.user_data.get("attempts", 0) + 1
+    user_data = context.user_data
+    user_data["attempts"] = user_data.get("attempts", 0) + 1
     if msg == 'Назову город целиком':
         await update.message.reply_text('Хорошо! Называй название города целиком.')
         return TOWN
-    if len(msg) == 1 and msg.isalpha() and msg.lower() not in context.user_data["guessed_letters"]:
-        context.user_data["guessed_letters"].append(msg.lower())
+    if len(msg) == 1 and msg.isalpha() and msg.lower() not in user_data["guessed_letters"]:
+        user_data["guessed_letters"].append(msg.lower())
         if " ".join(print_guessed_letters(context)).count('_') == 0:
-            # await update.message.reply_html(f'Молодец! Ты угадал! Загаданный город - '
-            #                                 f'<b> {"".join(context.user_data["guessed_town"]).capitalize()}\n'
-            #                                 f'Хотите сыграть еще раз?</b>',
-            #                                 reply_markup=ReplyKeyboardMarkup([['ДА', 'НЕТ']],
-            #                                                                  resize_keyboard=True,
-            #                                                                  one_time_keyboard=True))
-            # await update.message.reply_text(few_facts_abt_town(''.join(context.user_data[
-            #                                                                "guessed_town"])))
             win_params = win(context)
             await update.message.reply_html(win_params[1], reply_markup=win_params[0])
             await update.message.reply_html(win_params[2])
             fix_results(update, context, 'WIN')
             return LAUNCH_DIALOG
-        if msg.lower() in context.user_data["guessed_town"] or msg in context.user_data[
+        if msg.lower() in user_data["guessed_town"] or msg in user_data[
             "guessed_town"]:
             await update.message.reply_text('Отлично! Эта буква есть в названии.')
     elif len(msg) > 1:
@@ -136,23 +115,16 @@ async def check_letter(update: Update, context):
 
 
 async def check_town(update: Update, context):
-    context.user_data["attempts"] = context.user_data.get("attempts", 0) + 1
-    if update.message.text == 'Назову букву':
+    user_data = context.user_data
+    user_data["attempts"] = user_data.get("attempts", 0) + 1
+    msg = update.message.text
+    if msg == 'Назову букву':
         await update.message.reply_html('Хорошо! Называй букву из названия города.\n'
                                         'Угаданные буквы\n'
                                         f'<b>{" ".join(print_guessed_letters(context))}</b>')
         return LETTER
-    if update.message.text.lower() == ''.join(context.user_data["guessed_town"]).lower().replace(
-            '-', ' ') or update.message.text.lower() == ''.join(context.user_data[
-            "guessed_town"]).lower():
-        # await update.message.reply_html(f'Молодец! Ты угадал! Загаданный город - '
-        #                                 f'<b> {"".join(context.user_data["guessed_town"]).capitalize()}\n'
-        #                                 f'Хотите сыграть еще раз?</b>',
-        #                                 reply_markup=ReplyKeyboardMarkup([['ДА', 'НЕТ']],
-        #                                                                  resize_keyboard=True,
-        #                                                                  one_time_keyboard=True))
-        # await update.message.reply_html(
-        #     few_facts_abt_town(''.join(context.user_data["guessed_town"])))
+    if msg.lower() == ''.join(user_data["guessed_town"]).lower().replace(
+            '-', ' ') or msg.lower() == ''.join(user_data["guessed_town"]).lower():
         win_params = win(context)
         await update.message.reply_html(win_params[1], reply_markup=win_params[0])
         await update.message.reply_html(win_params[2])
@@ -169,7 +141,7 @@ async def dev(update: Update, context):
     await update.message.reply_text(''.join(context.user_data['guessed_town']))
 
 
-async def bye(update: Update, context):
+async def bye(update: Update, context) -> ConversationHandler.END:
     await update.message.reply_text('Жаль, что не смог победить! Спасибо за игру! Жду снова!',
                                     reply_markup=ReplyKeyboardMarkup([['/start', '/help']],
                                                                      resize_keyboard=True))
@@ -202,6 +174,11 @@ async def statistics(update: Update, context):
         f"<b>Наименьшее кол-во попыток для угадывания - {user.min_attempts}</b>\n"
         f"<b>Последнее кол-во попыток для угадывания - {user.wins}</b>\n"
         f"<b>Всего попыток - {user.attempts}</b>")
+
+
+async def help_(update: Update, context):
+    await update.message.reply_html('<b>/start - Начало игры</b>\n'
+                                    '<b>/stats - Статистика игрока</b>\n')
 
 
 if __name__ == '__main__':

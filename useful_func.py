@@ -1,6 +1,7 @@
 import json
 import requests
 from bs4 import BeautifulSoup
+from telegram import ReplyKeyboardMarkup
 
 from config import APIKEY_GEO, URL_GEO
 
@@ -72,3 +73,10 @@ def few_facts_abt_town(town):
         out += f'\n<b>Небольшая статья</b>\n\n{main_moments}\n\n'
         out += f'Больше можно узнать по ссылке <b>{url}</b>'
     return out
+
+
+def win(context):
+    keyboard = ReplyKeyboardMarkup([['ДА', 'НЕТ']], resize_keyboard=True, one_time_keyboard=True)
+    msg1 = f'Молодец! Ты угадал! Загаданный город - <b> {"".join(context.user_data["guessed_town"])}\nХотите сыграть еще раз?</b>'
+    msg2 = few_facts_abt_town(''.join(context.user_data["guessed_town"]))
+    return [keyboard, msg1, msg2]
