@@ -1,7 +1,8 @@
 import logging
 import random
 from telegram import Update, ReplyKeyboardRemove, Bot
-from telegram.ext import Application, CommandHandler, ConversationHandler, MessageHandler, filters
+from telegram.ext import Application, CommandHandler, ConversationHandler, MessageHandler, filters, \
+    ContextTypes
 from config import BOT_TOKEN
 from data.db_session import global_init, create_session
 from data.users import User
@@ -13,18 +14,24 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+# Словесное представление states для # conv_handler
+
 LAUNCH_DIALOG, LETTER_OR_TOWN, LETTER, TOWN = range(4)
 
+# Список городов для загадывания
+
 towns = [i.strip("\n") for i in open('cities.txt', encoding='utf8')]
+
+# Города с которыми возникали проблемы
 towns_exceptions = ["Йошкар-Ола", 'Каменск-Уральский', 'Комсомольск-на-Амуре', 'Орехово-Зуево',
                     'Петропавловск-Камчатский', 'Ростов-на-Дону', 'Санкт-Петербург', 'Улан-Удэ',
                     'Ханты-Мансийск', 'Южно-Сахалинск']
 
 
-def fix_results(update: Update, context, result):
+def fix_results(update: Update, context: ContextTypes.DEFAULT_TYPE, result: str) -> None:
     sess = create_session()  # Создание сессии с ДБ
     user = sess.query(User).filter(User.user_id == update.effective_user.id).first()  # Поиск Юзера
-    if user is None:  # Если юзера не существует
+    if user is None:  # Если юзера не существует, то добавляем
         user = User()
         user.user_id = update.effective_user.id
         sess.add(user)
@@ -46,7 +53,7 @@ def fix_results(update: Update, context, result):
     context.user_data.clear()  # Удаление информации об игре с пользователем
 
 
-async def start(update, context) -> LAUNCH_DIALOG:
+async def start(update, context: ContextTypes.DEFAULT_TYPE) -> LAUNCH_DIALOG:
     user = update.effective_user
     keyboard = [['ДА', 'НЕТ']]
     markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
@@ -58,7 +65,7 @@ async def start(update, context) -> LAUNCH_DIALOG:
     return LAUNCH_DIALOG
 
 
-async def launch(update: Update, context):
+async def launch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if update.message.text == 'ДА':
         keyboard = ReplyKeyboardMarkup([['Назову букву', 'Назову город целиком']],
                                        one_time_keyboard=True, resize_keyboard=True)
@@ -76,7 +83,7 @@ async def launch(update: Update, context):
     return LAUNCH_DIALOG
 
 
-async def letter_or_town(update: Update, context):
+async def letter_or_town(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     msg = update.message.text
     if msg == 'Назову букву':
         await update.message.reply_html('Хорошо! Называй букву из названия города.\n'
@@ -88,10 +95,10 @@ async def letter_or_town(update: Update, context):
         return TOWN
 
 
-async def check_letter(update: Update, context):
+async def check_letter(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     msg = update.message.text
     user_data = context.user_data
-    user_data["attempts"] = user_data.get("attempts", 0) + 1
+    user_data["attempts"] = user_data.get("attempts", 0) + 1 # Добавление попытки в общее кол-во
     if msg == 'Назову город целиком':
         await update.message.reply_text('Хорошо! Называй название города целиком.')
         return TOWN
@@ -114,9 +121,9 @@ async def check_letter(update: Update, context):
                                     f'<b>{" ".join(print_guessed_letters(context))}</b>')
 
 
-async def check_town(update: Update, context):
+async def check_town(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user_data = context.user_data
-    user_data["attempts"] = user_data.get("attempts", 0) + 1
+    user_data["attempts"] = user_data.get("attempts", 0) + 1 # Добавление попытки в общее кол-во
     msg = update.message.text
     if msg == 'Назову букву':
         await update.message.reply_html('Хорошо! Называй букву из названия города.\n'
@@ -137,11 +144,13 @@ async def check_town(update: Update, context):
                                             one_time_keyboard=True, resize_keyboard=True))
 
 
-async def dev(update: Update, context):
+
+# Функция для теста
+async def dev(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(''.join(context.user_data['guessed_town']))
 
-
-async def bye(update: Update, context) -> ConversationHandler.END:
+# Функция для прощания
+async def bye(update: Update, context: ContextTypes.DEFAULT_TYPE) -> ConversationHandler.END:
     await update.message.reply_text('Жаль, что не смог победить! Спасибо за игру! Жду снова!',
                                     reply_markup=ReplyKeyboardMarkup([['/start', '/help']],
                                                                      resize_keyboard=True))
@@ -149,14 +158,18 @@ async def bye(update: Update, context) -> ConversationHandler.END:
     return ConversationHandler.END
 
 
-async def get_photo(update):
+async def get_photo(update: Update) -> bool: # Получения фото пользователя
     photo = await bot.get_user_profile_photos(update.effective_user.id)
-    photo = photo.photos[0][0]
+    try:
+        photo = photo.photos[0][0]
+    except IndexError:
+        return False
     file = await bot.get_file(photo.file_id)
     await file.download_to_drive(f'data/photos/{update.effective_user.id}.jpeg')
+    return True
 
 
-async def statistics(update: Update, context):
+async def statistics(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     sess = create_session()
     user = sess.query(User).filter(User.user_id == update.effective_user.id).first()
     if user is None:
@@ -165,8 +178,8 @@ async def statistics(update: Update, context):
         sess.add(user)
         sess.commit()
         user = sess.query(User).filter(User.user_id == update.effective_user.id).first()
-    await get_photo(update)
-    await update.message.reply_photo(f'data/photos/{update.effective_user.id}.jpeg')
+    if await get_photo(update):
+        await update.message.reply_photo(f'data/photos/{update.effective_user.id}.jpeg')
     await update.message.reply_html(
         f"<b>Статистика игрока  {update.effective_user.mention_html()}</b>\n"
         f"<b>Победы - {user.wins}</b>\n<b>Поражения - {user.loses}</b>\n"
@@ -176,7 +189,7 @@ async def statistics(update: Update, context):
         f"<b>Всего попыток - {user.attempts}</b>")
 
 
-async def help_(update: Update, context):
+async def help_(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_html('<b>/start - Начало игры</b>\n'
                                     '<b>/stats - Статистика игрока</b>\n')
 
