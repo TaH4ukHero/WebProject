@@ -101,7 +101,8 @@ async def hint(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 
 def keyboard_for_hint():
-    keyboard = ReplyKeyboardMarkup([['Назвать административный округ', 'Открыть букву']])
+    keyboard = ReplyKeyboardMarkup([['Назвать административный округ', 'Открыть букву']],
+                                   resize_keyboard=True, one_time_keyboard=True)
     text = 'Выберите один из вариантов'
     return [keyboard, text]
 
