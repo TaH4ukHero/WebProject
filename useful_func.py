@@ -2,8 +2,8 @@ import json
 import requests
 from bs4 import BeautifulSoup
 from telegram import ReplyKeyboardMarkup
-
 from config import APIKEY_GEO, URL_GEO
+# from dotenv import dotenv_values FOR Glitch
 from data.db_session import create_session
 from data.users import User
 
@@ -58,10 +58,12 @@ def few_facts_abt_town(town, mode=False):
     params = {
         "geocode": town,
         "apikey": APIKEY_GEO,
+        # "apikey": dotenv_values()["APIKYE_GEO"] FOR Glitch
         "format": "json",
         "lang": "ru_RU"
     }
     r = requests.get(url=URL_GEO, params=params).json()
+    # r = requests.get(url=dotenv_values()["URL_GEO"], params=params).json() FOR Glitch
     out += f'Название - <b>{town}</b>\n'
     with open('town2population.json', encoding='utf8') as file:
         population = json.load(file).get(town)

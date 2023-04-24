@@ -4,6 +4,7 @@ from telegram import Update, ReplyKeyboardRemove, Bot
 from telegram.ext import Application, CommandHandler, ConversationHandler, MessageHandler, filters, \
     ContextTypes
 from config import BOT_TOKEN
+# from dotenv import dotenv_values FOR Glitch
 from data.db_session import global_init, create_session
 from data.users import User
 from useful_func import *
@@ -228,7 +229,9 @@ async def help_(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 if __name__ == '__main__':
     app = Application.builder().token(BOT_TOKEN).build()
+    # app = Application.builder().token(dotenv_values()["BOT_TOKEN"]) FOR Glitch
     bot = Bot(BOT_TOKEN)
+    # bot = Bot(dotenv_values()["BOT_TOKEN"]) FOR Glitch
 
     global_init('db/user.db')
 
