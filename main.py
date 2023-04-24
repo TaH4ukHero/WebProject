@@ -85,21 +85,24 @@ async def letter_or_town(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 async def hint(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     msg = update.message.text
     user_data = context.user_data
-    user_data["hints"] -= 1
-    if user_data["hints"] < 0:
-        await update.message.reply_text('Подсказок больше нет')
+    keyboard = ReplyKeyboardMarkup([['Назову букву', 'Назову город целиком']],
+                                   one_time_keyboard=True, resize_keyboard=True)
+    if user_data["hints"] <= 0:
+        await update.message.reply_text('Подсказок больше нет', reply_markup=keyboard)
+        return LETTER_OR_TOWN
     if msg == 'Назвать административный округ':
-        keyboard = ReplyKeyboardMarkup([['Назову букву', 'Назову город целиком']],
-                                       one_time_keyboard=True, resize_keyboard=True)
+        user_data["hints"] -= 1
         text = few_facts_abt_town(''.join(user_data["guessed_town"]), mode=True)
         await update.message.reply_text(f"{text}\nОсталось подсказок {user_data['hints']}/3",
                                         reply_markup=keyboard)
-    else:
-        keyboard = ReplyKeyboardMarkup([['Назову букву', 'Назову город целиком']],
-                                       one_time_keyboard=True, resize_keyboard=True)
+    elif msg == 'Открыть букву':
+        user_data["hints"] -= 1
         await update.message.reply_text(f'Была открыта новая буква\nОсталось подсказок '
                                         f'{user_data["hints"]}/3', reply_markup=keyboard)
         user_data = hint_2(random.choice(user_data["not_guessed_letters"]), user_data)
+    else:
+        await update.message.reply_text('Заглушка')
+        return HINT
     return LETTER_OR_TOWN
 
 
