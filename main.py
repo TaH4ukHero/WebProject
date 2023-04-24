@@ -64,7 +64,7 @@ async def launch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
                                         reply_markup=keyboard)
 
         return ConversationHandler.END
-    await update.message.reply_text('Я тебя не понял. Повтори пожалуйста')
+    await update.message.reply_text('Выберите команду из предложенных кнопок')
     return LAUNCH_DIALOG
 
 
@@ -81,6 +81,7 @@ async def letter_or_town(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await update.message.reply_text('Хорошо! Называй название города целиком.',
                                         reply_markup=keyboard)
         return TOWN
+    await update.message.reply_text('Выберите команду из предложенных кнопок')
 
 
 async def hint(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -101,9 +102,17 @@ async def hint(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         await update.message.reply_text(f'Была открыта новая буква\nОсталось подсказок '
                                         f'{user_data["hints"]}/3', reply_markup=keyboard)
         user_data = hint_2(random.choice(user_data["not_guessed_letters"]), user_data)
+        if " ".join(print_guessed_letters(context)).count('_') == 0:
+            win_params = win(context)
+            await update.message.reply_html(win_params[2])
+            await update.message.reply_html(win_params[1], reply_markup=win_params[0])
+            fix_results(update, context, 'WIN')
+            return LAUNCH_DIALOG
+        await update.message.reply_html(f'Угаданные буквы\n'
+                                        f'<b>{" ".join(print_guessed_letters(context))}</b>')
+
     else:
-        await update.message.reply_text('Заглушка')
-        return HINT
+        await update.message.reply_text('Выберите команду из предложенных кнопок')
     return LETTER_OR_TOWN
 
 
@@ -224,7 +233,8 @@ async def statistics(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
 async def help_(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_html('<b>/start - Начало игры</b>\n\n'
-                                    '<b>/stats - Статистика игрока</b>\n')
+                                    '<b>/stats - Статистика игрока</b>\n\n'
+                                    '<b>/stop - Конец игры при уже запущенной игре')
 
 
 if __name__ == '__main__':
