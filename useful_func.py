@@ -96,7 +96,6 @@ def hint_2(msg, user_data, mode='letter'):
             user_data["not_guessed_letters"].remove(msg.lower())
         if msg in user_data["not_guessed_letters"]:
             user_data["not_guessed_letters"].remove(msg)
-    user_data["guessed_letters"].append(msg.lower())
     return user_data
 
 

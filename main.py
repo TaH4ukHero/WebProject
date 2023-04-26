@@ -234,7 +234,7 @@ async def statistics(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 async def help_(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_html('<b>/start - Начало игры</b>\n\n'
                                     '<b>/stats - Статистика игрока</b>\n\n'
-                                    '<b>/stop - Конец игры при уже запущенной игре')
+                                    '<b>/stop - Конец игры при уже запущенной игре</b>')
 
 
 if __name__ == '__main__':
