@@ -146,7 +146,7 @@ async def check_letter(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         if msg.lower() in user_data["guessed_town"] or msg in user_data[
             "guessed_town"]:
             await update.message.reply_text('Отлично! Эта буква есть в названии.')
-            user_data["not_guessed_letters"] = hint(msg, user_data)
+            user_data["not_guessed_letters"] = hint_2(msg, user_data)
     elif len(msg) > 1:
         await update.message.reply_text('Вводи по одной букве!')
     else:
